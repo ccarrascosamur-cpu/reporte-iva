@@ -351,6 +351,7 @@ async function cargar(){
     _bsale = { ventas, compras };
     _periodo = { mes, anio };
     recompute();
+    calcularCostoSegundoPlano([..._bsale.ventas.boletas, ..._bsale.ventas.factVenta]);
   } catch(e){
     let extra='';
     if(/Failed to fetch/i.test(e.message)){
@@ -420,6 +421,62 @@ function recompute(){
       nAuto: ventas.comprasAuto.length, nManual: manualArr.length,
       credRecibidas, credAuto, credManual }
   });
+  window._lastNetoVentas = netoVentas;
+}
+
+// ===== COSTO MERCADERÍA (segundo plano) =====
+const _costoCache = {};
+async function getCostoVariante(variantId){
+  if(_costoCache[variantId]!==undefined) return _costoCache[variantId];
+  try {
+    const d=await bsaleGet(`/variants/${variantId}/costs.json`);
+    _costoCache[variantId]=num(d.averageCost)||0;
+  } catch { _costoCache[variantId]=0; }
+  return _costoCache[variantId];
+}
+async function getDetallesDocumento(docId){
+  const items=[]; let offset=0;
+  while(true){
+    const d=await bsaleGet(`/documents/${docId}/details.json?limit=25&offset=${offset}`);
+    const pg=d.items||[]; items.push(...pg);
+    if(pg.length<25) break;
+    offset+=25;
+    if(offset>5000) break;
+  }
+  return items;
+}
+async function calcularCostoSegundoPlano(docsVenta){
+  const elC=document.getElementById('costo-valor');
+  const elCS=document.getElementById('costo-sub');
+  const elM=document.getElementById('margen-valor');
+  const elMS=document.getElementById('margen-sub');
+  if(!elC) return;
+  let costo=0, procesados=0; const total=docsVenta.length;
+  for(const doc of docsVenta){
+    try {
+      const detalles=await getDetallesDocumento(doc.id);
+      for(const det of detalles){
+        const vid=det.variant?.id; if(!vid) continue;
+        costo+=(num(det.quantity)||0)*await getCostoVariante(vid);
+      }
+    } catch {}
+    procesados++;
+    const el=document.getElementById('costo-valor');
+    if(el) el.textContent=`Calculando... (${procesados}/${total})`;
+  }
+  const elC2=document.getElementById('costo-valor');
+  const elCS2=document.getElementById('costo-sub');
+  const elM2=document.getElementById('margen-valor');
+  const elMS2=document.getElementById('margen-sub');
+  if(elC2){ elC2.textContent=fmt(costo); }
+  if(elCS2){ elCS2.textContent='Costo promedio × cantidad vendida'; }
+  const neto=window._lastNetoVentas||0;
+  if(elM2){
+    const margen=neto-costo;
+    elM2.textContent=fmt(margen);
+    elM2.style.color=margen>=0?'#059669':'#dc2626';
+  }
+  if(elMS2 && neto>0){ elMS2.textContent=`${((neto-(costo))/neto*100).toFixed(1)}% sobre neto ventas`; }
 }
 
 // ===== RENDER =====
@@ -466,6 +523,8 @@ function renderReporte(d){
       <div class="card purple"><div class="card-label">Total Compras</div><div class="card-value">${fmt(d.totalCompras)}</div><div class="card-sub">Neto ${fmt(d.netoCompras)} · Exento ${fmt(d.exentoCompras)}</div></div>
       <div class="card orange"><div class="card-label">PPM 1% Ventas Netas</div><div class="card-value">${fmt(d.ppm)}</div><div class="card-sub">Pago Provisional Mensual</div></div>
       <div class="card" style="border-left:4px solid #f59e0b"><div class="card-label">IUT Trabajadores</div><div class="card-value" style="color:#d97706">${fmt(d.iut)}</div><div class="card-sub">Crédito</div></div>
+      <div class="card purple"><div class="card-label">Costo Mercadería</div><div class="card-value" id="costo-valor">Calculando...</div><div class="card-sub" id="costo-sub">costo promedio × cant. vendida</div></div>
+      <div class="card" style="border-left:4px solid #10b981"><div class="card-label">Margen Bruto</div><div class="card-value" id="margen-valor" style="color:#059669">—</div><div class="card-sub" id="margen-sub">esperando costo</div></div>
     </div>
 
     <div class="section">
