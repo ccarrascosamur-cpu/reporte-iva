@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reporte IVA — Bsale</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f0f2f5; color: #1a1a2e; }
+
+  header { background: #1a1a2e; color: white; padding: 16px 20px; display: flex; align-items: center; gap: 12px; }
+  header h1 { font-size: 1.1rem; font-weight: 600; }
+  header span { font-size: 0.78rem; opacity: 0.6; display: block; }
+
+  .controls { background: white; padding: 16px 20px; border-bottom: 1px solid #e5e7eb; display: flex; gap: 12px; align-items: stretch; flex-direction: column; }
+  .control-group { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+  .control-group label { font-size: 0.75rem; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; }
+  .control-group input, .control-group select { border: 1px solid #d1d5db; border-radius: 8px; padding: 10px 12px; font-size: 16px; outline: none; width: 100%; min-height: 44px; background: white; }
+  .control-group input:focus, .control-group select:focus { border-color: #4f46e5; box-shadow: 0 0 0 3px rgba(79,70,229,0.1); }
+  .token-input { width: 100%; font-family: monospace; font-size: 14px; }
+
+  .btn-row { display: flex; gap: 8px; align-items: stretch; flex-direction: column; }
+  button { padding: 12px 20px; border-radius: 8px; border: none; cursor: pointer; font-size: 0.95rem; font-weight: 500; transition: all 0.15s; min-height: 44px; touch-action: manipulation; }
+  .btn-primary { background: #4f46e5; color: white; }
+  .btn-primary:hover { background: #4338ca; }
+  .btn-primary:disabled { background: #9ca3af; cursor: not-allowed; }
+  .btn-secondary { background: #f3f4f6; color: #374151; border: 1px solid #d1d5db; }
+  .btn-secondary:hover { background: #e5e7eb; }
+
+  .main { padding: 20px 16px; max-width: 1400px; margin: 0 auto; }
+
+  .period-tabs { display: flex; gap: 6px; margin-bottom: 20px; flex-wrap: wrap; }
+  .period-tab { padding: 8px 14px; border-radius: 20px; border: 1px solid #d1d5db; background: white; cursor: pointer; font-size: 0.85rem; color: #374151; transition: all 0.15s; touch-action: manipulation; min-height: 36px; }
+  .period-tab:hover { border-color: #4f46e5; color: #4f46e5; }
+
+  .summary-grid { display: grid; grid-template-columns: 1fr; gap: 12px; margin-bottom: 24px; }
+  .card { background: white; border-radius: 12px; padding: 16px; border: 1px solid #e5e7eb; }
+  .card-label { font-size: 0.7rem; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+  .card-value { font-size: 1.35rem; font-weight: 700; color: #1a1a2e; }
+  .card-sub { font-size: 0.78rem; color: #9ca3af; margin-top: 4px; }
+  .card.green .card-value { color: #059669; }
+  .card.red .card-value { color: #dc2626; }
+  .card.blue .card-value { color: #2563eb; }
+  .card.purple .card-value { color: #7c3aed; }
+  .card.orange .card-value { color: #d97706; }
+
+  .iva-result { background: linear-gradient(135deg, #1a1a2e, #2d2d5e); color: white; border-radius: 12px; padding: 20px 16px; margin-bottom: 24px; display: flex; flex-direction: column; gap: 16px; }
+  .iva-result h2 { font-size: 0.85rem; opacity: 0.7; margin-bottom: 4px; }
+  .iva-result .monto { font-size: 1.6rem; font-weight: 700; }
+  .iva-result .detalle { font-size: 0.8rem; opacity: 0.6; }
+  .iva-pill { background: rgba(255,255,255,0.15); border-radius: 8px; padding: 10px 16px; text-align: center; flex: 1; min-width: 120px; }
+
+  .section { background: white; border-radius: 12px; border: 1px solid #e5e7eb; margin-bottom: 16px; overflow: hidden; }
+  .section-header { padding: 14px 16px; border-bottom: 1px solid #f3f4f6; display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none; gap: 8px; }
+  .section-header h3 { font-size: 0.88rem; font-weight: 600; display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+  .section-header .badge { font-size: 0.7rem; background: #f3f4f6; color: #6b7280; padding: 2px 8px; border-radius: 20px; font-weight: 500; }
+  .section-header .chevron { transition: transform 0.2s; flex-shrink: 0; }
+  .section-header.collapsed .chevron { transform: rotate(-90deg); }
+  .section-body { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+  .section-totals { display: flex; gap: 8px; align-items: center; font-size: 0.8rem; color: #6b7280; flex-shrink: 1; min-width: 0; overflow: hidden; flex-wrap: wrap; justify-content: flex-end; }
+  .section-totals span { white-space: nowrap; }
+  .section-totals .st-total { font-weight: 700; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+  th { background: #f9fafb; padding: 8px 10px; text-align: left; font-weight: 600; color: #6b7280; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 1px solid #e5e7eb; white-space: nowrap; }
+  td { padding: 8px 10px; border-bottom: 1px solid #f3f4f6; color: #374151; white-space: nowrap; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #fafafa; }
+  .text-right { text-align: right; }
+  .mono { font-family: monospace; font-size: 0.8rem; }
+
+  .loading { text-align: center; padding: 40px 20px; color: #6b7280; }
+  .loading .spinner { width: 36px; height: 36px; border: 3px solid #e5e7eb; border-top-color: #4f46e5; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 16px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .empty { text-align: center; padding: 32px 20px; color: #9ca3af; font-size: 0.88rem; }
+  .error-msg { background: #fef2f2; border: 1px solid #fecaca; color: #dc2626; padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; font-size: 0.88rem; }
+
+  .debug-info { background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; padding: 12px 16px; margin-bottom: 20px; font-size: 0.8rem; color: #0369a1; line-height: 1.6; }
+  .debug-info strong { color: #0284c7; }
+  .debug-info.warn { background: #fffbeb; border-color: #fcd34d; color: #92400e; }
+  .debug-info.warn strong { color: #b45309; }
+  .debug-info .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .debug-info .chip { background: rgba(2,132,199,0.12); border-radius: 6px; padding: 3px 8px; font-family: monospace; font-size: 0.72rem; }
+
+  .btn-del { background:#fee2e2; color:#dc2626; border:none; border-radius:6px; width:30px; height:30px; cursor:pointer; font-weight:700; }
+  .btn-del:hover { background:#fecaca; }
+  #manual-rows input, #manual-rows select { border:1px solid #d1d5db; border-radius:6px; padding:6px 8px; font-size:0.82rem; width:100%; background:white; }
+  #manual-rows input:focus, #manual-rows select:focus { border-color:#4f46e5; outline:none; }
+
+  @media (min-width: 768px) {
+    header { padding: 20px 32px; gap: 16px; }
+    header h1 { font-size: 1.25rem; }
+    header span { font-size: 0.85rem; display: inline; }
+    .controls { padding: 20px 32px; flex-direction: row; align-items: flex-end; flex-wrap: wrap; gap: 16px; }
+    .control-group { width: auto; }
+    .control-group input, .control-group select { font-size: 0.9rem; min-height: auto; }
+    .token-input { width: 320px; font-size: 0.8rem; }
+    .btn-row { flex-direction: row; align-items: flex-end; }
+    button { padding: 9px 20px; font-size: 0.9rem; min-height: auto; }
+    .main { padding: 28px 32px; }
+    .summary-grid { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 28px; }
+    .card { padding: 20px; }
+    .card-value { font-size: 1.5rem; }
+    .iva-result { padding: 24px; flex-direction: row; justify-content: space-between; align-items: center; }
+    .iva-result h2 { font-size: 1rem; }
+    .iva-result .monto { font-size: 2rem; }
+    .section { margin-bottom: 20px; }
+    .section-header { padding: 16px 20px; }
+    .section-header h3 { font-size: 0.95rem; gap: 8px; }
+    .section-totals { gap: 20px; font-size: 0.85rem; flex-wrap: nowrap; }
+    table { font-size: 0.85rem; }
+    th { padding: 10px 14px; font-size: 0.75rem; }
+    td { padding: 10px 14px; }
+  }
+  @media print {
+    .controls, .period-tabs, header button { display: none; }
+    body { background: white; }
+    .section { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Reporte IVA — Bsale</h1>
+    <span>Débito · Crédito fiscal · IUT · PPM · Compras afectas y exentas</span>
+  </div>
+</header>
+
+<div class="controls">
+  <div class="control-group">
+    <label>Token Bsale</label>
+    <input type="password" id="token" class="token-input" placeholder="Pega tu access_token (se guarda solo en este navegador)">
+  </div>
+  <div class="control-group">
+    <label>Mes</label>
+    <select id="mes"></select>
+  </div>
+  <div class="control-group">
+    <label>Año</label>
+    <select id="anio"></select>
+  </div>
+  <div class="control-group">
+    <label>IUT Trabajadores ($)</label>
+    <input type="number" id="iut" placeholder="Ej: 113033" value="113033" min="0">
+  </div>
+  <div class="btn-row">
+    <button class="btn-primary" id="btnCargar" onclick="cargar()">Generar Reporte</button>
+    <button class="btn-secondary" onclick="window.print()">Imprimir</button>
+  </div>
+</div>
+
+<div class="main">
+  <div class="period-tabs">
+    <div class="period-tab" onclick="quick(-1)">Mes anterior</div>
+    <div class="period-tab" onclick="quick(0)">Mes actual</div>
+  </div>
+
+  <div id="errorMsg" class="error-msg" style="display:none"></div>
+  <div id="contenido"><div class="empty">Selecciona mes/año y presiona <strong>Generar Reporte</strong></div></div>
+</div>
+
+<script>
+const BASE = 'https://api.bsale.cl/v1';
+
+// codeSii de VENTA
+const CS_BOLETA  = ['39','41'];      // boleta afecta / exenta
+const CS_FACTURA = ['33','34','43']; // factura afecta / exenta / liquidación-factura (Mercado Libre)
+const CS_NC      = ['61'];           // nota de crédito
+const CS_ND      = ['56'];           // nota de débito
+
+// ===== Helpers =====
+const num = v => { const n = parseFloat(v); return isNaN(n) ? 0 : n; };
+const fmt = n => '$' + Math.round(n||0).toLocaleString('es-CL');
+function fmtFecha(ts){
+  if(!ts) return '-';
+  try {
+    return new Intl.DateTimeFormat('es-CL',{timeZone:'America/Santiago',day:'2-digit',month:'2-digit',year:'numeric'}).format(new Date(ts*1000));
+  } catch { const d=new Date(ts*1000); return `${String(d.getUTCDate()).padStart(2,'0')}-${String(d.getUTCMonth()+1).padStart(2,'0')}-${d.getUTCFullYear()}`; }
+}
+// Mes/Año del documento en hora local de Chile (maneja DST automáticamente)
+function chileMesAnio(ts){
+  const p = new Intl.DateTimeFormat('en-US',{timeZone:'America/Santiago',year:'numeric',month:'numeric'}).formatToParts(new Date(ts*1000));
+  return { mes:+p.find(x=>x.type==='month').value, anio:+p.find(x=>x.type==='year').value };
+}
+function nombreTipoDoc(cs){
+  const map={'39':'Boleta','41':'Boleta Exenta','33':'Factura Elec.','34':'Factura Exenta','46':'Factura Compra','56':'Nota Débito','61':'Nota Crédito'};
+  return map[String(cs)]||('codeSii '+cs);
+}
+
+// ===== Setup selects + persistencia =====
+const MESES=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+(function init(){
+  const selMes=document.getElementById('mes'), selAnio=document.getElementById('anio');
+  MESES.forEach((m,i)=> selMes.add(new Option(m, i+1)));
+  const ahora=new Date(), y=ahora.getFullYear();
+  for(let a=y+1;a>=y-3;a--) selAnio.add(new Option(a,a));
+  // token guardado
+  const tk=localStorage.getItem('bsale_token'); if(tk) document.getElementById('token').value=tk.replace(/[^\x21-\x7E]/g,'');
+  const iut=localStorage.getItem('bsale_iut'); if(iut) document.getElementById('iut').value=iut;
+  quick(-1); // por defecto: mes anterior (período que normalmente se declara)
+})();
+
+// Aviso si se abre con doble clic (file://) — Chrome bloqueará las peticiones
+if(location.protocol==='file:'){
+  document.addEventListener('DOMContentLoaded', ()=>{
+    const c=document.getElementById('contenido');
+    if(c) c.innerHTML = `<div class="error-msg" style="display:block">⚠ Abriste el archivo con doble clic (file://). El navegador bloqueará las consultas a Bsale.<br><br>
+      Ábrelo desde un servidor local: en esta carpeta corre <code style="font-family:monospace;background:#fff;padding:2px 6px;border-radius:4px">python3 -m http.server 8000</code> y entra a <strong>http://localhost:8000/${location.pathname.split('/').pop()}</strong><br>
+      (o súbelo a Netlify / GitHub Pages / tu hosting).</div>`;
+  });
+}
+
+function quick(delta){
+  const h=new Date(); let m=h.getMonth()+delta, y=h.getFullYear();
+  while(m<0){m+=12;y--;} while(m>11){m-=12;y++;}
+  document.getElementById('mes').value=m+1;
+  document.getElementById('anio').value=y;
+}
+
+// ===== API =====
+function token(){ return (document.getElementById('token').value||'').normalize('NFKC').replace(/[^\x21-\x7E]/g,''); }
+async function bsaleGet(path){
+  const r = await fetch(`${BASE}${path}`, { headers:{ 'access_token': token() } });
+  if(!r.ok) throw new Error(`API ${path.split('?')[0]} → ${r.status}: ${await r.text().catch(()=> '')}`);
+  return r.json();
+}
+
+// Paginación genérica con control por count
+async function paginar(buildPath){
+  const out=[]; let offset=0; const limit=50; let count=null;
+  while(true){
+    const data = await bsaleGet(buildPath(limit, offset));
+    if(count===null) count = (typeof data.count==='number') ? data.count : null;
+    const items = data.items || [];
+    out.push(...items);
+    if(items.length < limit) break;
+    offset += limit;
+    if(offset > 100000) break;
+  }
+  return { items:out, count };
+}
+
+// ===== COMPRAS (third_party_documents) =====
+async function getCompras(mes, anio){
+  mostrarLoadingMsg(`Consultando compras ${mes}/${anio}...`);
+  const { items:raw, count } = await paginar((l,o)=> `/third_party_documents.json?month=${mes}&year=${anio}&limit=${l}&offset=${o}`);
+
+  let vacios=0;
+  const docs=[];
+  for(const d of raw){
+    const iva=num(d.ivaAmount), neto=num(d.netAmount), exento=num(d.exemptAmount), total=num(d.totalAmount);
+    // Incluir si CUALQUIER monto > 0 (no excluir exentas 34 ni facturas compra 46)
+    if(!(total>0 || neto>0 || iva>0 || exento>0)){ vacios++; continue; }
+    const cs=String(d.codeSii||'');
+    const f = cs==='61' ? -1 : 1; // notas de crédito restan
+    docs.push({
+      _cs: cs,
+      _taxAmount:  iva*f,
+      _netAmount:  neto*f,
+      _exemptAmount: exento*f,
+      _totalAmount: (total || exento || neto || iva) * f,
+      _emissionDate: d.emissionDate,
+      _number: d.number || d.id || '',
+      _nombre: d.clientActivity || '-',
+      _codigo: d.clientCode || '-',
+      _bookType: d.bookType
+    });
+  }
+
+  // breakdown diagnóstico
+  const porCodeSii={}, porBook={};
+  docs.forEach(d=>{ porCodeSii[d._cs]=(porCodeSii[d._cs]||0)+1; const b=d._bookType??'?'; porBook[b]=(porBook[b]||0)+1; });
+
+  return { docs, diag:{ apiCount:count, recibidos:raw.length, incluidos:docs.length, vacios, porCodeSii, porBook } };
+}
+
+// ===== VENTAS (documents) =====
+// Ventana UTC amplia (±3 días) y luego se filtra por mes LOCAL de Chile.
+async function getVentas(mes, anio){
+  mostrarLoadingMsg('Cargando documentos de venta...');
+  const desdeTs = Math.floor(Date.UTC(anio, mes-1, 1, 0,0,0)/1000) - 3*86400;
+  const hastaTs = Math.floor(Date.UTC(anio, mes,   1, 0,0,0)/1000) + 3*86400;
+  const { items:raw } = await paginar((l,o)=> `/documents.json?emissiondaterange=[${desdeTs},${hastaTs}]&state=0&expand=[document_type,client]&limit=${l}&offset=${o}`);
+
+  const enMes = raw.filter(d=>{
+    const ts=d.emissionDate; if(!ts) return false;
+    const c=chileMesAnio(ts); return c.mes===mes && c.anio===anio;
+  });
+
+  const cs = d => String(d.document_type?.codeSii ?? d.codeSii ?? '');
+  const nombreCli = d => (d.client?.company || `${d.client?.firstName||''} ${d.client?.lastName||''}`.trim() || d.clientName || '-');
+
+  const boletas = enMes.filter(d=> CS_BOLETA.includes(cs(d)));
+  const factVenta = enMes.filter(d=> CS_FACTURA.includes(cs(d)));
+  const notasCredito = enMes.filter(d=> CS_NC.includes(cs(d)));
+  const notasDebito = enMes.filter(d=> CS_ND.includes(cs(d)));
+
+  // codeSii 46 = facturas de compra AUTOEMITIDAS (Shopify, Google, Facebook, etc.) → son COMPRAS
+  const comprasAuto = enMes.filter(d=> cs(d)==='46').map(d=>({
+    _cs:'46',
+    _taxAmount: num(d.taxAmount),
+    _netAmount: num(d.netAmount),
+    _exemptAmount: num(d.exemptAmount),
+    _totalAmount: num(d.totalAmount) || num(d.netAmount)+num(d.taxAmount)+num(d.exemptAmount),
+    _emissionDate: d.emissionDate,
+    _number: d.number || d.id || '',
+    _nombre: nombreCli(d),
+    _codigo: d.client?.code || '-',
+    _fuente: 'Bsale · factura compra (46)'
+  }));
+
+  return { boletas, factVenta, notasCredito, notasDebito, comprasAuto, total:enMes.length, recibidos:raw.length };
+}
+
+// ===== DOCUMENTOS MANUALES (no existen en Bsale: DIN Aduana, ajustes) =====
+function manualKey(mes,anio){ return `bsale_manual_${anio}_${String(mes).padStart(2,'0')}`; }
+function loadManual(mes,anio){ try { return JSON.parse(localStorage.getItem(manualKey(mes,anio))||'[]'); } catch { return []; } }
+function saveManual(mes,anio,arr){ localStorage.setItem(manualKey(mes,anio), JSON.stringify(arr)); }
+function manualToCompras(arr){
+  return arr.map(m=>{
+    const neto=num(m.neto), iva=num(m.iva), exento=num(m.exento);
+    return { _cs:'manual', _taxAmount:iva, _netAmount:neto, _exemptAmount:exento,
+      _totalAmount:(neto+iva+exento), _emissionDate:null, _number:m.num||'-',
+      _nombre:m.prov||'Documento manual', _codigo:m.rut||'-', _fuente:'Manual' };
+  });
+}
+
+// ===== CARGA PRINCIPAL =====
+let _bsale = null;        // datos crudos de Bsale del último período cargado
+let _periodo = null;      // {mes, anio}
+
+async function cargar(){
+  const btn=document.getElementById('btnCargar');
+  document.getElementById('errorMsg').style.display='none';
+  if(!token()){ return mostrarError('Ingresa el token de Bsale.'); }
+
+  const mes=+document.getElementById('mes').value, anio=+document.getElementById('anio').value;
+  localStorage.setItem('bsale_token', token());
+  localStorage.setItem('bsale_iut', document.getElementById('iut').value);
+
+  btn.disabled=true; btn.textContent='Cargando...';
+  mostrarLoading('Cargando período...');
+
+  try {
+    const ventas  = await getVentas(mes, anio);
+    const compras = await getCompras(mes, anio);
+    _bsale = { ventas, compras };
+    _periodo = { mes, anio };
+    recompute();
+  } catch(e){
+    let extra='';
+    if(/Failed to fetch/i.test(e.message)){
+      if(location.protocol==='file:') extra=' — Estás abriendo el archivo con doble clic (file://). Chrome bloquea las peticiones así. Sírvelo desde http://localhost (ej: "python3 -m http.server" en esta carpeta) o súbelo a un hosting.';
+      else extra=' — Revisa el token o una extensión del navegador (adblock) que esté bloqueando api.bsale.cl.';
+    }
+    mostrarError('Error: ' + e.message + extra);
+    document.getElementById('contenido').innerHTML='';
+  } finally {
+    btn.disabled=false; btn.textContent='Generar Reporte';
+  }
+}
+
+// Recalcula y re-renderiza usando _bsale + documentos manuales (sin volver a llamar la API)
+function recompute(){
+  if(!_bsale || !_periodo) return;
+  const { mes, anio } = _periodo;
+  const { ventas, compras } = _bsale;
+
+  // ---- Documentos manuales (compras y ventas) ----
+  const manualArr = loadManual(mes, anio);
+  const manCompras = manualArr.filter(m=> (m.tipo||'compra')==='compra');
+  const manVentas  = manualArr.filter(m=> m.tipo==='venta');
+  const manVentaNeto = manVentas.reduce((s,m)=> s+num(m.neto),0);
+  const manVentaIva  = manVentas.reduce((s,m)=> s+num(m.iva),0);
+  const manVentaTotal= manVentas.reduce((s,m)=> s+num(m.neto)+num(m.iva)+num(m.exento),0);
+
+  // ---- Ventas ----
+  const sum=(arr,k)=> arr.reduce((s,d)=> s+num(d[k]),0);
+  const boletasBruto=sum(ventas.boletas,'totalAmount'), boletasNeto=sum(ventas.boletas,'netAmount'), boletasIva=sum(ventas.boletas,'taxAmount');
+  const fvBruto=sum(ventas.factVenta,'totalAmount'), fvNeto=sum(ventas.factVenta,'netAmount'), fvIva=sum(ventas.factVenta,'taxAmount');
+  const ncBruto=sum(ventas.notasCredito,'totalAmount'), ncNeto=sum(ventas.notasCredito,'netAmount'), ncIva=sum(ventas.notasCredito,'taxAmount');
+  const ndIva=sum(ventas.notasDebito,'taxAmount'), ndNeto=sum(ventas.notasDebito,'netAmount');
+
+  const netoVentas = boletasNeto + fvNeto + ndNeto - ncNeto + manVentaNeto;
+  const ivaVentas  = boletasIva  + fvIva  + ndIva  - ncIva + manVentaIva;   // débito fiscal
+  const totalVentaBruta = boletasBruto + fvBruto - ncBruto + manVentaTotal;
+
+  // ---- Compras (3 fuentes) ----
+  const factCompra = [ ...compras.docs, ...ventas.comprasAuto, ...manualToCompras(manCompras) ];
+
+  const ivaCompras  = factCompra.reduce((s,d)=> s+d._taxAmount,0);   // crédito fiscal
+  const netoCompras = factCompra.reduce((s,d)=> s+d._netAmount,0);
+  const exentoCompras = factCompra.reduce((s,d)=> s+d._exemptAmount,0);
+  const totalCompras = factCompra.reduce((s,d)=> s+d._totalAmount,0);
+
+  // ---- Resultado ----
+  const iut = num(document.getElementById('iut').value);
+  const ppm = Math.round(netoVentas * 0.01);
+  const ivaDeterminado = ivaVentas - ivaCompras;          // débito − crédito
+  const totalPagar = ivaDeterminado + ppm + iut;          // F29: PPM e IUT se SUMAN (se enteran)
+
+  // subtotales de crédito por fuente (diagnóstico)
+  const credRecibidas = compras.docs.reduce((s,d)=>s+d._taxAmount,0);
+  const credAuto = ventas.comprasAuto.reduce((s,d)=>s+d._taxAmount,0);
+  const credManual = manualToCompras(manCompras).reduce((s,d)=>s+d._taxAmount,0);
+
+  renderReporte({
+    mes, anio,
+    boletas:ventas.boletas, factVenta:ventas.factVenta, notasCredito:ventas.notasCredito, factCompra,
+    boletasBruto, boletasNeto, boletasIva, fvBruto, fvNeto, fvIva, ncBruto, ncNeto, ncIva,
+    totalVentaBruta, netoVentas, ivaVentas,
+    totalCompras, netoCompras, exentoCompras, ivaCompras,
+    ivaDeterminado, totalPagar, iut, ppm,
+    diag:{ ...compras.diag,
+      nVentas: ventas.boletas.length + ventas.factVenta.length, nBoletas: ventas.boletas.length, nFactVenta: ventas.factVenta.length,
+      nAuto: ventas.comprasAuto.length, nManual: manualArr.length,
+      credRecibidas, credAuto, credManual }
+  });
+}
+
+// ===== RENDER =====
+function renderReporte(d){
+  const periodoLabel = `${MESES[d.mes-1]} ${d.anio}`;
+  const g=d.diag;
+  const faltan = (g.apiCount!=null && g.apiCount > g.recibidos);
+  const chips = Object.keys(g.porCodeSii).sort().map(k=> `<span class="chip">${nombreTipoDoc(k)}: ${g.porCodeSii[k]}</span>`).join('');
+  const chipsBook = Object.keys(g.porBook).sort().map(k=> `<span class="chip">book ${k}: ${g.porBook[k]}</span>`).join('');
+  const debugPanel = `
+    <div class="debug-info ${faltan?'warn':''}">
+      <div><strong>Compras recibidas (third_party):</strong> API ${g.apiCount==null?'—':g.apiCount} · incluidas ${g.incluidos} · vacías descartadas ${g.vacios} · crédito ${fmt(g.credRecibidas)}
+        ${faltan?' ⚠ La API tiene más documentos de los recibidos (revisar token).':''}</div>
+      <div style="margin-top:4px"><strong>Facturas de compra autoemitidas (46):</strong> ${g.nAuto} docs · crédito ${fmt(g.credAuto)} <span style="opacity:.7">(Shopify, Google, Facebook, etc.)</span></div>
+      <div style="margin-top:4px"><strong>Documentos manuales:</strong> ${g.nManual} docs · crédito ${fmt(g.credManual)} <span style="opacity:.7">(DIN Aduana / ajustes que no están en Bsale)</span></div>
+      <div style="margin-top:4px"><strong>Ventas:</strong> ${g.nBoletas} boletas · ${g.nFactVenta} facturas</div>
+      <div class="chips">${chips}</div>
+    </div>`;
+
+  document.getElementById('contenido').innerHTML = `
+    <div style="margin-bottom:20px;font-size:0.9rem;color:#6b7280">Período tributario: <strong style="color:#1a1a2e">${periodoLabel}</strong></div>
+    ${debugPanel}
+
+    <div class="iva-result">
+      <div>
+        <h2>TOTAL A PAGAR F29 (IVA DETERMINADO + PPM + IUT)</h2>
+        <div style="font-size:0.7rem;opacity:0.5;margin-top:4px">IVA determinado = Débito − Crédito · PPM = 1% ventas netas · PPM e IUT se suman (se enteran en el F29)</div>
+        <div class="monto">${fmt(d.totalPagar)}</div>
+        <div class="detalle">IVA determinado: ${fmt(d.ivaDeterminado)} (Débito ${fmt(d.ivaVentas)} − Crédito ${fmt(d.ivaCompras)}) + PPM ${fmt(d.ppm)} + IUT ${fmt(d.iut)}</div>
+      </div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap">
+        <div class="iva-pill"><div style="font-size:0.75rem;opacity:0.7;margin-bottom:2px">DÉBITO FISCAL</div><div style="font-size:1.1rem;font-weight:700">${fmt(d.ivaVentas)}</div></div>
+        <div class="iva-pill"><div style="font-size:0.75rem;opacity:0.7;margin-bottom:2px">CRÉDITO FISCAL</div><div style="font-size:1.1rem;font-weight:700">${fmt(d.ivaCompras)}</div></div>
+        <div class="iva-pill"><div style="font-size:0.75rem;opacity:0.7;margin-bottom:2px">IVA DETERMINADO</div><div style="font-size:1.1rem;font-weight:700">${fmt(d.ivaDeterminado)}</div></div>
+        <div class="iva-pill"><div style="font-size:0.75rem;opacity:0.7;margin-bottom:2px">PPM 1%</div><div style="font-size:1.1rem;font-weight:700">${fmt(d.ppm)}</div></div>
+        <div class="iva-pill"><div style="font-size:0.75rem;opacity:0.7;margin-bottom:2px">IUT</div><div style="font-size:1.1rem;font-weight:700">${fmt(d.iut)}</div></div>
+      </div>
+    </div>
+
+    <div class="summary-grid">
+      <div class="card green"><div class="card-label">Neto Ventas</div><div class="card-value">${fmt(d.netoVentas)}</div><div class="card-sub">Base imponible</div></div>
+      <div class="card blue"><div class="card-label">Débito Fiscal</div><div class="card-value">${fmt(d.ivaVentas)}</div><div class="card-sub">IVA ventas</div></div>
+      <div class="card red"><div class="card-label">Crédito Fiscal</div><div class="card-value">${fmt(d.ivaCompras)}</div><div class="card-sub">${d.factCompra.length} documentos de compra</div></div>
+      <div class="card purple"><div class="card-label">Total Compras</div><div class="card-value">${fmt(d.totalCompras)}</div><div class="card-sub">Neto ${fmt(d.netoCompras)} · Exento ${fmt(d.exentoCompras)}</div></div>
+      <div class="card orange"><div class="card-label">PPM 1% Ventas Netas</div><div class="card-value">${fmt(d.ppm)}</div><div class="card-sub">Pago Provisional Mensual</div></div>
+      <div class="card" style="border-left:4px solid #f59e0b"><div class="card-label">IUT Trabajadores</div><div class="card-value" style="color:#d97706">${fmt(d.iut)}</div><div class="card-sub">Crédito</div></div>
+    </div>
+
+    <div class="section">
+      <div class="section-header" onclick="toggleSection('res-ventas')"><h3>Resumen Ventas</h3><span class="chevron">&#9662;</span></div>
+      <div class="section-body" id="res-ventas">
+        <table>
+          <thead><tr><th>Concepto</th><th class="text-right">N°</th><th class="text-right">Bruto</th><th class="text-right">Neto</th><th class="text-right">IVA</th></tr></thead>
+          <tbody>
+            <tr><td>Boletas (39/41)</td><td class="text-right mono">${d.boletas.length}</td><td class="text-right mono">${fmt(d.boletasBruto)}</td><td class="text-right mono">${fmt(d.boletasNeto)}</td><td class="text-right mono">${fmt(d.boletasIva)}</td></tr>
+            <tr><td>Facturas Venta (33/34)</td><td class="text-right mono">${d.factVenta.length}</td><td class="text-right mono">${fmt(d.fvBruto)}</td><td class="text-right mono">${fmt(d.fvNeto)}</td><td class="text-right mono">${fmt(d.fvIva)}</td></tr>
+            ${d.notasCredito.length?`<tr style="color:#dc2626"><td>Notas Crédito (61)</td><td class="text-right mono">${d.notasCredito.length}</td><td class="text-right mono">-${fmt(d.ncBruto)}</td><td class="text-right mono">-${fmt(d.ncNeto)}</td><td class="text-right mono">-${fmt(d.ncIva)}</td></tr>`:''}
+          </tbody>
+          <tfoot><tr style="background:#f0fdf4;font-weight:700"><td>TOTAL VENTAS</td><td class="text-right mono">${d.boletas.length+d.factVenta.length}</td><td class="text-right mono">${fmt(d.totalVentaBruta)}</td><td class="text-right mono">${fmt(d.netoVentas)}</td><td class="text-right mono">${fmt(d.ivaVentas)}</td></tr></tfoot>
+        </table>
+      </div>
+    </div>
+
+    ${tablaVentas('Boletas Electrónicas', d.boletas)}
+    ${tablaVentas('Facturas de Venta', d.factVenta)}
+    ${d.notasCredito.length ? tablaVentas('Notas de Crédito', d.notasCredito) : ''}
+    ${tablaCompras('Documentos de Compra (Bsale + autoemitidas + manuales)', d.factCompra)}
+    ${editorManual(d.mes, d.anio)}
+  `;
+}
+
+// ===== EDITOR DE DOCUMENTOS MANUALES =====
+function editorManual(mes, anio){
+  const arr = loadManual(mes, anio);
+  const filas = arr.map((m,i)=>`
+    <tr>
+      <td><select data-i="${i}" data-k="tipo" style="min-width:90px">
+        <option value="compra" ${(m.tipo||'compra')==='compra'?'selected':''}>Compra (+crédito)</option>
+        <option value="venta" ${m.tipo==='venta'?'selected':''}>Venta (+débito)</option>
+      </select></td>
+      <td><input data-i="${i}" data-k="prov" value="${(m.prov||'').replace(/"/g,'&quot;')}" placeholder="Glosa / proveedor" style="min-width:140px"></td>
+      <td><input data-i="${i}" data-k="rut" value="${m.rut||''}" placeholder="RUT" style="min-width:90px"></td>
+      <td><input data-i="${i}" data-k="num" value="${m.num||''}" placeholder="N°" style="min-width:70px"></td>
+      <td><input data-i="${i}" data-k="neto" type="number" value="${m.neto||0}" style="min-width:90px"></td>
+      <td><input data-i="${i}" data-k="iva" type="number" value="${m.iva||0}" style="min-width:90px"></td>
+      <td><input data-i="${i}" data-k="exento" type="number" value="${m.exento||0}" style="min-width:90px"></td>
+      <td><button class="btn-del" onclick="delManual(${i})">✕</button></td>
+    </tr>`).join('');
+  return `
+    <div class="section">
+      <div class="section-header" onclick="toggleSection('manual-body')">
+        <h3>Documentos manuales <span class="badge">${arr.length}</span></h3>
+        <span class="chevron">&#9662;</span>
+      </div>
+      <div class="section-body" id="manual-body">
+        <div style="padding:12px 16px;font-size:0.8rem;color:#6b7280;background:#fffbeb;border-bottom:1px solid #fcd34d">
+          Documentos que <strong>no están en Bsale</strong> o ajustes de período. <strong>Compra</strong> suma al crédito fiscal (ej: DIN de importación Aduana). <strong>Venta</strong> suma al débito (ej: facturas que el contador asigna a otro mes). Se guardan en este navegador por período.
+        </div>
+        <table style="min-width:760px">
+          <thead><tr><th>Tipo</th><th>Glosa / Proveedor</th><th>RUT</th><th>N°</th><th class="text-right">Neto</th><th class="text-right">IVA</th><th class="text-right">Exento</th><th></th></tr></thead>
+          <tbody id="manual-rows">${filas || '<tr><td colspan="8" class="empty">Sin documentos manuales</td></tr>'}</tbody>
+        </table>
+        <div style="padding:12px 16px;display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn-secondary" onclick="addManual()">+ Compra</button>
+          <button class="btn-secondary" onclick="addVentaAjuste()">+ Ajuste venta</button>
+          <button class="btn-secondary" onclick="addAduanaEjemplo()" title="Atajo: fila DIN Aduana">+ DIN Aduana</button>
+          <button class="btn-primary" onclick="aplicarManual()">Guardar y recalcular</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function leerManualDelDOM(){
+  const arr = loadManual(_periodo.mes, _periodo.anio);
+  document.querySelectorAll('#manual-rows input, #manual-rows select').forEach(inp=>{
+    const i=+inp.dataset.i, k=inp.dataset.k;
+    if(!arr[i]) arr[i]={};
+    arr[i][k] = (inp.type==='number') ? num(inp.value) : inp.value;
+  });
+  return arr;
+}
+function addManual(){
+  const arr = leerManualDelDOM();
+  arr.push({tipo:'compra',prov:'',rut:'',num:'',neto:0,iva:0,exento:0});
+  saveManual(_periodo.mes,_periodo.anio,arr); recompute();
+}
+function addVentaAjuste(){
+  const arr = leerManualDelDOM();
+  arr.push({tipo:'venta',prov:'Ajuste venta',rut:'',num:'',neto:0,iva:0,exento:0});
+  saveManual(_periodo.mes,_periodo.anio,arr); recompute();
+}
+function addAduanaEjemplo(){
+  const arr = leerManualDelDOM();
+  arr.push({tipo:'compra',prov:'DIN Aduana',rut:'',num:'',neto:0,iva:0,exento:0});
+  saveManual(_periodo.mes,_periodo.anio,arr); recompute();
+}
+function delManual(i){
+  const arr = leerManualDelDOM(); arr.splice(i,1);
+  saveManual(_periodo.mes,_periodo.anio,arr); recompute();
+}
+function aplicarManual(){
+  saveManual(_periodo.mes,_periodo.anio, leerManualDelDOM()); recompute();
+}
+
+function tablaVentas(titulo, docs){
+  const tN=docs.reduce((s,d)=>s+num(d.netAmount),0), tI=docs.reduce((s,d)=>s+num(d.taxAmount),0), tT=docs.reduce((s,d)=>s+num(d.totalAmount),0);
+  const id='sec-'+Math.random().toString(36).slice(2);
+  const filas = docs.length===0
+    ? `<tr><td colspan="7" class="empty">Sin documentos en el período</td></tr>`
+    : docs.map(d=>{
+        const nombre = d.client?.company || d.client?.firstName ? `${d.client?.company||''} ${d.client?.firstName||''} ${d.client?.lastName||''}`.trim() : (d.clientName||'-');
+        return `<tr>
+          <td class="mono">${d.number||'-'}</td>
+          <td>${fmtFecha(d.emissionDate)}</td>
+          <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis" title="${nombre}">${nombre||'-'}</td>
+          <td class="mono" style="font-size:0.75rem">${d.client?.code||'-'}</td>
+          <td class="text-right mono">${fmt(num(d.netAmount))}</td>
+          <td class="text-right mono">${fmt(num(d.taxAmount))}</td>
+          <td class="text-right mono" style="font-weight:600">${fmt(num(d.totalAmount))}</td>
+        </tr>`;
+      }).join('');
+  return secWrap(titulo, docs.length, tN, tI, tT, id,
+    `<thead><tr><th>N°</th><th>Fecha</th><th>Cliente</th><th>RUT</th><th class="text-right">Neto</th><th class="text-right">IVA</th><th class="text-right">Total</th></tr></thead>
+     <tbody>${filas}</tbody>`, 4);
+}
+
+function tablaCompras(titulo, docs){
+  const tN=docs.reduce((s,d)=>s+d._netAmount,0), tI=docs.reduce((s,d)=>s+d._taxAmount,0), tT=docs.reduce((s,d)=>s+d._totalAmount,0), tE=docs.reduce((s,d)=>s+d._exemptAmount,0);
+  const id='sec-'+Math.random().toString(36).slice(2);
+  const filas = docs.length===0
+    ? `<tr><td colspan="8" class="empty">Sin documentos en el período</td></tr>`
+    : docs.map(d=>`<tr ${d._cs==='61'?'style="color:#dc2626"':(d._fuente==='Manual'?'style="background:#fffbeb"':(d._cs==='46'?'style="background:#f0f9ff"':''))}>
+        <td style="font-size:0.72rem;color:#6b7280">${nombreTipoDoc(d._cs)}</td>
+        <td class="mono">${d._number||'-'}</td>
+        <td>${fmtFecha(d._emissionDate)}</td>
+        <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis" title="${d._nombre}">${d._nombre}</td>
+        <td class="mono" style="font-size:0.75rem">${d._codigo}</td>
+        <td style="font-size:0.68rem;color:#9ca3af">${d._fuente||'Bsale · recibida'}</td>
+        <td class="text-right mono">${fmt(d._netAmount)}</td>
+        <td class="text-right mono">${fmt(d._exemptAmount)}</td>
+        <td class="text-right mono">${fmt(d._taxAmount)}</td>
+        <td class="text-right mono" style="font-weight:600">${fmt(d._totalAmount)}</td>
+      </tr>`).join('');
+  return `
+    <div class="section">
+      <div class="section-header" onclick="toggleSection('${id}')">
+        <h3>${titulo} <span class="badge">${docs.length} docs</span></h3>
+        <div class="section-totals">
+          <span>Neto: <strong>${fmt(tN)}</strong></span>
+          <span>Exento: <strong>${fmt(tE)}</strong></span>
+          <span>IVA: <strong>${fmt(tI)}</strong></span>
+          <span class="st-total">Total: ${fmt(tT)}</span>
+          <span class="chevron">&#9662;</span>
+        </div>
+      </div>
+      <div class="section-body" id="${id}">
+        <table>
+          <thead><tr><th>Tipo Doc</th><th>N°</th><th>Fecha</th><th>Proveedor</th><th>RUT</th><th>Fuente</th><th class="text-right">Neto</th><th class="text-right">Exento</th><th class="text-right">IVA</th><th class="text-right">Total</th></tr></thead>
+          <tbody>${filas}</tbody>
+          ${docs.length?`<tfoot><tr style="background:#fdf4ff;font-weight:700">
+            <td colspan="6" style="padding:10px;font-size:0.8rem;color:#6b7280">TOTALES (crédito fiscal = IVA)</td>
+            <td class="text-right mono">${fmt(tN)}</td><td class="text-right mono">${fmt(tE)}</td>
+            <td class="text-right mono" style="color:#dc2626">${fmt(tI)}</td><td class="text-right mono">${fmt(tT)}</td>
+          </tr></tfoot>`:''}
+        </table>
+      </div>
+    </div>`;
+}
+
+function secWrap(titulo, n, tN, tI, tT, id, inner, colspan){
+  return `
+    <div class="section">
+      <div class="section-header" onclick="toggleSection('${id}')">
+        <h3>${titulo} <span class="badge">${n} docs</span></h3>
+        <div class="section-totals">
+          <span>Neto: <strong>${fmt(tN)}</strong></span>
+          <span>IVA: <strong>${fmt(tI)}</strong></span>
+          <span class="st-total">Total: ${fmt(tT)}</span>
+          <span class="chevron">&#9662;</span>
+        </div>
+      </div>
+      <div class="section-body" id="${id}">
+        <table>${inner}
+          ${n?`<tfoot><tr style="background:#f9fafb;font-weight:600">
+            <td colspan="${colspan}" style="padding:10px;font-size:0.8rem;color:#6b7280">TOTALES</td>
+            <td class="text-right mono">${fmt(tN)}</td><td class="text-right mono">${fmt(tI)}</td><td class="text-right mono">${fmt(tT)}</td>
+          </tr></tfoot>`:''}
+        </table>
+      </div>
+    </div>`;
+}
+
+function toggleSection(id){
+  const body=document.getElementById(id); const header=body.previousElementSibling;
+  const collapsed = body.style.display==='none';
+  body.style.display = collapsed ? '' : 'none';
+  header.classList.toggle('collapsed', !collapsed);
+}
+function mostrarLoading(msg){
+  document.getElementById('contenido').innerHTML=`<div class="loading"><div class="spinner"></div><div id="loadingMsg">${msg||'Cargando...'}</div></div>`;
+}
+function mostrarLoadingMsg(msg){ const el=document.getElementById('loadingMsg'); if(el) el.textContent=msg; }
+function mostrarError(msg){ const el=document.getElementById('errorMsg'); el.textContent=msg; el.style.display='block'; }
+</script>
+</body>
+</html>
